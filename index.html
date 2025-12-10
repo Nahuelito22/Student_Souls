@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Souls: Veintipico Edition</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; }
+    </style>
+    <script src="https://unpkg.com/kaboom@3000.0.1/dist/kaboom.js"></script>
+</head>
+<body>
+<script>
+    kaboom({
+        background: [30, 30, 30],
+        scale: 3, // Zoom retro
+    });
+
+    // ==========================================
+    // 1. CARGA DE ASSETS (CORREGIDO 64x32)
+    // ==========================================
+
+    // Animación de correr (4 columnas x 2 filas)
+    loadSprite("bob_run", "game_assets/Bob_run_16x16.png", {
+        sliceX: 4, // 64px / 16px = 4
+        sliceY: 2, // 32px / 16px = 2
+        anims: {
+            // Fila 1: Derecha (frames 0, 1, 2, 3)
+            "run-right": { from: 0, to: 3, loop: true, speed: 10 },
+            // Fila 2: Arriba (frames 4, 5, 6, 7)
+            "run-up":    { from: 4, to: 7, loop: true, speed: 10 },
+
+            // TEMPORAL: Usamos 'right' para 'left' y 'up' para 'down'
+            // para que no se rompa el juego hasta conseguir la imagen completa.
+            "run-left":  { from: 0, to: 3, loop: true, speed: 10 },
+            "run-down":  { from: 4, to: 7, loop: true, speed: 10 },
+        }
+    });
+
+    // Animación de estar quieto (4 columnas x 2 filas)
+    loadSprite("bob_idle", "game_assets/Bob_idle_16x16.png", {
+        sliceX: 4,
+        sliceY: 2,
+        anims: {
+            "idle-right": { from: 0, to: 3, loop: true, speed: 5 },
+            "idle-up":    { from: 4, to: 7, loop: true, speed: 5 },
+
+            // TEMPORAL
+            "idle-left":  { from: 0, to: 3, loop: true, speed: 5 },
+            "idle-down":  { from: 4, to: 7, loop: true, speed: 5 },
+        }
+    });
+
+    // Placeholders para edificios
+    loadSprite("puerta_uni", "https://kaboomjs.com/sprites/door.png"); 
+    loadSprite("mcdonalds", "https://kaboomjs.com/sprites/burger.png");
+
+    // ==========================================
+    // 2. ESCENAS
+    // ==========================================
+
+    scene("hub", () => {
+        const SPEED = 120;
+        let currentDir = "down"; // Para recordar hacia donde miraba
+
+        // --- MUNDO ---
+        add([ text("UNIVERSIDAD", { size: 8 }), pos(50, height()/2 - 40), anchor("center") ]);
+        add([ sprite("puerta_uni"), pos(50, height()/2), anchor("center"), area(), "universidad" ]);
+
+        add([ text("MERCADO LABORAL", { size: 8 }), pos(width()-50, height()/2 - 40), anchor("center") ]);
+        add([ sprite("mcdonalds"), pos(width()-50, height()/2), anchor("center"), area(), "mcdonalds" ]);
+
+        // --- JUGADOR ---
+        const player = add([
+            sprite("bob_idle"), // Empezamos con el sprite quieto
+            pos(center()),
+            anchor("center"),
+            area({ shape: new Rect(vec2(0, 4), 10, 12) }), // Hitbox ajustada a los pies
+            body(),
+            scale(1),
+            "jugador"
+        ]);
+
+        player.play("idle-down");
+
+        // --- SISTEMA DE MOVIMIENTO Y ANIMACIÓN ---
+        
+        function animate(state, dir) {
+            // state: "run" o "idle"
+            // dir: "left", "right", "up", "down"
+            
+            // Si cambiamos de estado (correr/quieto) o de dirección, actualizamos el sprite
+            const animName = `${state}-${dir}`;
+            const spriteName = `bob_${state}`;
+
+            if (player.curAnim() !== animName) {
+                player.use(sprite(spriteName)); // Cambiamos la imagen base (run vs idle)
+                player.play(animName); // Reproducimos la animación
+            }
+        }
+
+        onKeyDown("right", () => {
+            player.move(SPEED, 0);
+            currentDir = "right";
+            animate("run", "right");
+        });
+
+        onKeyDown("left", () => {
+            player.move(-SPEED, 0);
+            currentDir = "left";
+            animate("run", "left");
+        });
+
+        onKeyDown("up", () => {
+            player.move(0, -SPEED);
+            currentDir = "up";
+            animate("run", "up");
+        });
+
+        onKeyDown("down", () => {
+            player.move(0, SPEED);
+            currentDir = "down";
+            animate("run", "down");
+        });
+
+        // Al soltar las teclas, volver a Idle en la última dirección
+        onKeyRelease(["left", "right", "up", "down"], () => {
+            if (!isKeyDown("left") && !isKeyDown("right") && !isKeyDown("up") && !isKeyDown("down")) {
+                animate("idle", currentDir);
+            }
+        });
+    });
+
+    go("hub");
+</script>
+</body>
+</html>
