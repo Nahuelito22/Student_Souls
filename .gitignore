@@ -1,8 +1,6 @@
 # Ignorar entorno virtual
 venv/
-.venv/
-venvNimbus/
-.venvNimbus/
+
 # Archivos de compilación de Python
 __pycache__/
 *.pyc
@@ -33,7 +31,6 @@ Thumbs.db   # Windows
 
 # Archivos de documentacion generados
 estructura_directorio.txt
-Plan de Despliegue.txt
 
 # Plantilla commit
 plantilla_commit.txt
@@ -41,14 +38,30 @@ plantilla_commit.txt
 # Carpeta de ayudas y recursos
 ayudas_y_recursos/
 
-# Ignorar checkpoints de Jupyter
-.ipynb_checkpoints/
-.cache.sqlite
+# Godot 4+ specific ignores
+.godot/
+*.translation
+export_presets.cfg
 
-# Ignorar imagenes satelitales
-data/raw/imagenes_satelitales/
-src/static/
+# Mono/C# ignores (por si acaso)
+.mono/
+.vscode/
+*.csproj
+*.sln
 
-# Ignorar features_api
-# src/api/features_api.py
-node_modules
+# Import cache
+*.import
+
+# Windows thumbnail cache
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# MacOS
+.DS_Store
+
+# Python (ya que tenias requirements.txt)
+__pycache__/
+*.py[cod]
+venv/
+.env
