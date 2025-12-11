@@ -22,7 +22,6 @@ class Camera:
         return entity.rect.move(self.camera.topleft)
 
     def apply_rect(self, rect):
-        # Mueve cualquier rect (como una pared o hitbox) según la cámara
         return rect.move(self.camera.topleft)
 
     def update(self, target):
@@ -46,11 +45,12 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
         
-        # --- VARIABLE DEBUG ---
+        # DEBUG MODE (Actívalo con F1)
         self.debug_mode = False 
 
         self.all_sprites = pygame.sprite.Group()
-        self.obstacle_rects = [] 
+        self.obstacle_rects = []    # Lista de Paredes (Sólidas)
+        self.interaction_zones = {} # Diccionario de Puertas/Zonas (Interactuables)
 
         # --- CARGAR MAPA ---
         map_path = os.path.join("game_assets", "maps", "hub_interior.tmx")
@@ -65,16 +65,33 @@ class Game:
         self.map_width = self.tmx_data.width * self.tmx_data.tilewidth
         self.map_height = self.tmx_data.height * self.tmx_data.tileheight
         
-        # --- CARGAR PAREDES ---
+        # --- 1. CARGAR PAREDES (Capa 'Colisiones') ---
         try:
             collision_layer = self.tmx_data.get_layer_by_name("Colisiones")
             for obj in collision_layer:
-                if obj.name == "Spawn_Point":
+                # Ignoramos Spawn y Zonas si quedaron ahí por error
+                if obj.name == "Spawn_Point" or (obj.name and "Aula" in obj.name):
                     continue
+                
                 rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
                 self.obstacle_rects.append(rect)
+            print(f"🧱 Paredes cargadas: {len(self.obstacle_rects)}")
         except ValueError:
             print("⚠️ AVISO: No se encontró capa 'Colisiones'")
+
+        # --- 2. CARGAR PUERTAS (Capa 'Interacciones') ---
+        try:
+            interaction_layer = self.tmx_data.get_layer_by_name("Interacciones")
+            for obj in interaction_layer:
+                rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
+                
+                # Guardamos la zona con su nombre (ej: "Aula_Runner")
+                if obj.name:
+                    self.interaction_zones[obj.name] = rect
+                    print(f"🚪 Zona cargada: {obj.name}")
+                    
+        except ValueError:
+            print("⚠️ AVISO: No se encontró capa 'Interacciones'")
 
         # --- SPAWN ---
         player_pos = (100, 100)
@@ -82,8 +99,9 @@ class Game:
             spawn_obj = self.tmx_data.get_object_by_name("Spawn_Point")
             player_pos = (spawn_obj.x, spawn_obj.y)
         except:
-            pass
+            print("⚠️ No encontré Spawn_Point, usando (100,100)")
 
+        # Crear Jugador
         self.player = Player(player_pos, [self.all_sprites], self.obstacle_rects)
         self.camera = Camera(self.map_width, self.map_height)
 
@@ -95,14 +113,77 @@ class Game:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
                 
-                # --- TECLA DE DEBUG (F1) ---
                 if event.key == pygame.K_F1:
                     self.debug_mode = not self.debug_mode
-                    print(f"🔧 Debug Mode: {self.debug_mode}")
+                
+                # Interacción con tecla E
+                if event.key == pygame.K_e:
+                    self.check_interaction()
+
+    def check_interaction(self):
+        # Sensor un poquito más grande que Bob para detectar puertas cercanas
+        bob_sensor = self.player.rect.inflate(20, 20)
+        
+        for name, zone_rect in self.interaction_zones.items():
+            if bob_sensor.colliderect(zone_rect):
+                print(f"✅ INTERACTUANDO CON: {name}")
+                
+                # LÓGICA DE MINIJUEGOS (Aquí conectaremos los juegos después)
+                if name == "Aula_Runner":
+                    print("--> ¡A CORRER!")
+                elif name == "Aula_RPG":
+                    print("--> PELEA CONTRA EL SISTEMA")
+                elif name == "Aula_TP":
+                    print("--> HACER EL TP")
+                elif name == "Aula_Admin":
+                    print("--> BUROCRACIA")
 
     def update(self):
         self.all_sprites.update()
         self.camera.update(self.player)
+
+    def draw_ui(self):
+        # Dibuja los cartelitos "[E] Entrar"
+        bob_sensor = self.player.rect.inflate(20, 20)
+        
+        for name, zone_rect in self.interaction_zones.items():
+            if bob_sensor.colliderect(zone_rect):
+                font = pygame.font.SysFont("Arial", 14, bold=True)
+                
+                msg = ""
+                color = (255, 255, 255)
+
+                if name == "Aula_Runner":
+                    msg = "[E] Cursada Infinita"
+                    color = (100, 255, 100)
+                elif name == "Aula_RPG":
+                    msg = "[E] Final: El Sistema"
+                    color = (255, 100, 100)
+                elif name == "Aula_TP":
+                    msg = "[E] TP Grupal"
+                    color = (100, 100, 255)
+                elif name == "Aula_Admin":
+                    msg = "[E] Inscripción"
+                    color = (255, 255, 0)
+                
+                if msg:
+                    # Fondo negro del cartel
+                    text_surf = font.render(msg, True, color)
+                    bg_rect = text_surf.get_rect(midbottom=(SCREEN_WIDTH/2, SCREEN_HEIGHT - 20))
+                    pygame.draw.rect(self.screen_native, (0,0,0), bg_rect.inflate(10, 4))
+                    self.screen_native.blit(text_surf, bg_rect)
+                    
+                    # Debug visual (cuadro cyan sobre la puerta)
+                    if self.debug_mode:
+                        pygame.draw.rect(self.screen_native, (0, 255, 255), self.camera.apply_rect(zone_rect), 2)
+
+    def draw_debug(self):
+        if self.debug_mode:
+            # Paredes (Rojo)
+            for wall in self.obstacle_rects:
+                pygame.draw.rect(self.screen_native, (255, 0, 0), self.camera.apply_rect(wall), 1)
+            # Hitbox Bob (Verde)
+            pygame.draw.rect(self.screen_native, (0, 255, 0), self.camera.apply_rect(self.player.hitbox), 1)
 
     def draw_map(self):
         for layer in self.tmx_data.visible_layers:
@@ -112,33 +193,11 @@ class Game:
                     if tile:
                         world_x = x * self.tmx_data.tilewidth
                         world_y = y * self.tmx_data.tileheight
-                        
                         rect = pygame.Rect(world_x, world_y, self.tmx_data.tilewidth, self.tmx_data.tileheight)
                         screen_rect = self.camera.apply_rect(rect)
                         
-                        # Optimización de dibujado
                         if -32 < screen_rect.x < SCREEN_WIDTH + 32 and -32 < screen_rect.y < SCREEN_HEIGHT + 32:
                             self.screen_native.blit(tile, screen_rect)
-
-    def draw_debug(self):
-        if self.debug_mode:
-            # 1. Dibujar Paredes (Rojo)
-            for wall in self.obstacle_rects:
-                pygame.draw.rect(self.screen_native, (255, 0, 0), self.camera.apply_rect(wall), 1)
-            
-            # 2. Dibujar Hitbox del Jugador (Verde - Pies)
-            # Accedemos al hitbox que creamos en player.py
-            hitbox_rect = self.camera.apply_rect(self.player.hitbox)
-            pygame.draw.rect(self.screen_native, (0, 255, 0), hitbox_rect, 1)
-
-            # 3. Dibujar Rect de la Imagen (Blanco - Cuerpo entero)
-            image_rect = self.camera.apply(self.player)
-            pygame.draw.rect(self.screen_native, (255, 255, 255), image_rect, 1)
-
-            # 4. Mostrar FPS en pantalla
-            font = pygame.font.SysFont("Arial", 10)
-            fps_text = font.render(f"FPS: {int(self.clock.get_fps())}", True, (255, 255, 0))
-            self.screen_native.blit(fps_text, (5, 5))
 
     def draw(self):
         self.screen_native.fill(BG_COLOR)
@@ -146,12 +205,11 @@ class Game:
         if self.running:
             self.draw_map()
         
-        # Dibujar Sprites
         for sprite in self.all_sprites:
             self.screen_native.blit(sprite.image, self.camera.apply(sprite))
 
-        # --- DIBUJAR DEBUG ---
         self.draw_debug()
+        self.draw_ui() # <--- IMPORTANTE: Dibuja la interfaz al final
 
         frame_scaled = pygame.transform.scale(self.screen_native, (SCREEN_WIDTH * SCALE_FACTOR, SCREEN_HEIGHT * SCALE_FACTOR))
         self.screen_window.blit(frame_scaled, (0, 0))
