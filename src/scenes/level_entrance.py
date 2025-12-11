@@ -101,6 +101,9 @@ class LevelEntrance:
             if event.key == pygame.K_F1:
                 self.debug_mode = not self.debug_mode
             
+            if event.key == pygame.K_ESCAPE:
+                return True
+            
             if event.key == pygame.K_e:
                 self.check_interaction()
 

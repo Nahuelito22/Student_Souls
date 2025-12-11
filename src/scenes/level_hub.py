@@ -104,6 +104,9 @@ class LevelHub:
             if event.key == pygame.K_F1:
                 self.debug_mode = not self.debug_mode
             
+            if event.key == pygame.K_ESCAPE:
+                return True
+            
             if event.key == pygame.K_e:
                 if self.state == "playing":
                     self.check_interaction()
