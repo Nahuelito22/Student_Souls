@@ -48,6 +48,9 @@ class Game:
         # DEBUG MODE (Actívalo con F1)
         self.debug_mode = False 
 
+        self.state = "playing" # Puede ser "playing" o "dialogue"
+        self.dialog_text = []  # Lista de líneas de texto a mostrar
+
         self.all_sprites = pygame.sprite.Group()
         self.obstacle_rects = []    # Lista de Paredes (Sólidas)
         self.interaction_zones = {} # Diccionario de Puertas/Zonas (Interactuables)
@@ -93,6 +96,35 @@ class Game:
         except ValueError:
             print("⚠️ AVISO: No se encontró capa 'Interacciones'")
 
+        # --- 2. CARGAR PUERTAS Y ZONAS ---
+        try:
+            interaction_layer = self.tmx_data.get_layer_by_name("Colisiones") # Ojo: Revisa si lo pusiste en Colisiones o Interacciones
+            # Según tu último TMX, Tutorial_Zone estaba en 'Colisiones' (ID 5)
+            # Y las Aulas en 'Interacciones'. Vamos a leer AMBAS capas buscando interacciones.
+            
+            # Función auxiliar para leer objetos interactivos
+            def cargar_interactivos(capa):
+                for obj in capa:
+                    rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
+                    
+                    # Detectar Aulas
+                    if obj.name and "Aula" in obj.name:
+                        self.interaction_zones[obj.name] = rect
+                    
+                    # Detectar Tutorial
+                    elif obj.name == "Tutorial_Zone":
+                        self.interaction_zones[obj.name] = rect
+                        print("ℹ️ Zona de Tutorial cargada")
+
+            # Leemos las dos capas por si acaso
+            try: cargar_interactivos(self.tmx_data.get_layer_by_name("Colisiones"))
+            except: pass
+            try: cargar_interactivos(self.tmx_data.get_layer_by_name("Interacciones"))
+            except: pass
+                    
+        except ValueError:
+            print("⚠️ Error leyendo capas de objetos")
+
         # --- SPAWN ---
         player_pos = (100, 100)
         try:
@@ -109,16 +141,20 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
-                
                 if event.key == pygame.K_F1:
                     self.debug_mode = not self.debug_mode
                 
-                # Interacción con tecla E
+                # Interacción
                 if event.key == pygame.K_e:
-                    self.check_interaction()
+                    if self.state == "playing":
+                        self.check_interaction()
+                    elif self.state == "dialogue":
+                        # Si estamos leyendo y apretamos E, cerramos el diálogo
+                        self.state = "playing"
 
     def check_interaction(self):
         # Sensor un poquito más grande que Bob para detectar puertas cercanas
@@ -127,9 +163,19 @@ class Game:
         for name, zone_rect in self.interaction_zones.items():
             if bob_sensor.colliderect(zone_rect):
                 print(f"✅ INTERACTUANDO CON: {name}")
+
+                if name == "Tutorial_Zone":
+                    self.state = "dialogue"
+                    self.dialog_text = [
+                        "Bienvenido a Student Souls.",
+                        "Usa las FLECHAS para moverte.",
+                        "Acércate a las puertas y presiona E para rendir.",
+                        "Cuidado: Si tu dinero o cordura bajan a 0...",
+                        "¡Pierdes la regularidad!"
+                    ]
                 
                 # LÓGICA DE MINIJUEGOS (Aquí conectaremos los juegos después)
-                if name == "Aula_Runner":
+                elif name == "Aula_Runner":
                     print("--> ¡A CORRER!")
                 elif name == "Aula_RPG":
                     print("--> PELEA CONTRA EL SISTEMA")
@@ -139,8 +185,9 @@ class Game:
                     print("--> BUROCRACIA")
 
     def update(self):
-        self.all_sprites.update()
-        self.camera.update(self.player)
+        if self.state == "playing":
+            self.all_sprites.update()
+            self.camera.update(self.player)
 
     def draw_ui(self):
         # Dibuja los cartelitos "[E] Entrar"
@@ -210,6 +257,7 @@ class Game:
 
         self.draw_debug()
         self.draw_ui() # <--- IMPORTANTE: Dibuja la interfaz al final
+        self.draw_dialog()
 
         frame_scaled = pygame.transform.scale(self.screen_native, (SCREEN_WIDTH * SCALE_FACTOR, SCREEN_HEIGHT * SCALE_FACTOR))
         self.screen_window.blit(frame_scaled, (0, 0))
@@ -222,6 +270,30 @@ class Game:
             self.draw()
             self.clock.tick(FPS)
             await asyncio.sleep(0)
+
+    def draw_dialog(self):
+        if self.state == "dialogue":
+            # 1. Dibujar el fondo del cuadro (Azul estilo Final Fantasy o Negro simple)
+            # Un rectángulo en la parte inferior de la pantalla
+            margin = 20
+            height = 90
+            rect = pygame.Rect(margin, SCREEN_HEIGHT - height - margin, SCREEN_WIDTH - (margin*2), height)
+            
+            pygame.draw.rect(self.screen_native, (0, 0, 150), rect) # Fondo Azul
+            pygame.draw.rect(self.screen_native, (255, 255, 255), rect, 2) # Borde Blanco
+            
+            # 2. Dibujar el texto
+            font = pygame.font.SysFont("Arial", 12)
+            y_offset = 10
+            
+            for line in self.dialog_text:
+                text_surf = font.render(line, True, (255, 255, 255))
+                self.screen_native.blit(text_surf, (rect.x + 10, rect.y + y_offset))
+                y_offset += 15
+                
+            # 3. Indicador de "Continuar"
+            press_e = font.render("[E] Cerrar", True, (255, 255, 0))
+            self.screen_native.blit(press_e, (rect.right - 60, rect.bottom - 15))
 
 if __name__ == "__main__":
     game = Game()
