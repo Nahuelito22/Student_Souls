@@ -141,7 +141,7 @@ class MinigameRPG:
         
         # 3. Opciones del Menú (Grilla 2x2)
         # Posiciones relativas dentro del panel
-        start_x = 40
+        start_x = 60
         start_y = panel_y + 15
         col_width = 140
         row_height = 25
