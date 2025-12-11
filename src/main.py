@@ -22,6 +22,7 @@ class Camera:
         return entity.rect.move(self.camera.topleft)
 
     def apply_rect(self, rect):
+        # Mueve cualquier rect (como una pared o hitbox) según la cámara
         return rect.move(self.camera.topleft)
 
     def update(self, target):
@@ -44,9 +45,12 @@ class Game:
         pygame.display.set_caption("Student Souls: Hub Central")
         self.clock = pygame.time.Clock()
         self.running = True
+        
+        # --- VARIABLE DEBUG ---
+        self.debug_mode = False 
 
         self.all_sprites = pygame.sprite.Group()
-        self.obstacle_rects = [] # Lista para guardar paredes
+        self.obstacle_rects = [] 
 
         # --- CARGAR MAPA ---
         map_path = os.path.join("game_assets", "maps", "hub_interior.tmx")
@@ -61,24 +65,18 @@ class Game:
         self.map_width = self.tmx_data.width * self.tmx_data.tilewidth
         self.map_height = self.tmx_data.height * self.tmx_data.tileheight
         
-        # --- CARGAR PAREDES (COLLISIONS) ---
-        # Buscamos la capa de objetos llamada 'Colisiones'
+        # --- CARGAR PAREDES ---
         try:
             collision_layer = self.tmx_data.get_layer_by_name("Colisiones")
             for obj in collision_layer:
-                # Si el objeto tiene nombre "Spawn_Point", NO es pared
                 if obj.name == "Spawn_Point":
                     continue
-                
-                # Creamos un Rect de pygame para cada pared
                 rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
                 self.obstacle_rects.append(rect)
-                
-            print(f"🧱 Paredes cargadas: {len(self.obstacle_rects)}")
         except ValueError:
             print("⚠️ AVISO: No se encontró capa 'Colisiones'")
 
-        # --- BUSCAR SPAWN ---
+        # --- SPAWN ---
         player_pos = (100, 100)
         try:
             spawn_obj = self.tmx_data.get_object_by_name("Spawn_Point")
@@ -86,7 +84,6 @@ class Game:
         except:
             pass
 
-        # Crear Jugador (Le pasamos las paredes)
         self.player = Player(player_pos, [self.all_sprites], self.obstacle_rects)
         self.camera = Camera(self.map_width, self.map_height)
 
@@ -97,6 +94,11 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
+                
+                # --- TECLA DE DEBUG (F1) ---
+                if event.key == pygame.K_F1:
+                    self.debug_mode = not self.debug_mode
+                    print(f"🔧 Debug Mode: {self.debug_mode}")
 
     def update(self):
         self.all_sprites.update()
@@ -114,8 +116,29 @@ class Game:
                         rect = pygame.Rect(world_x, world_y, self.tmx_data.tilewidth, self.tmx_data.tileheight)
                         screen_rect = self.camera.apply_rect(rect)
                         
+                        # Optimización de dibujado
                         if -32 < screen_rect.x < SCREEN_WIDTH + 32 and -32 < screen_rect.y < SCREEN_HEIGHT + 32:
                             self.screen_native.blit(tile, screen_rect)
+
+    def draw_debug(self):
+        if self.debug_mode:
+            # 1. Dibujar Paredes (Rojo)
+            for wall in self.obstacle_rects:
+                pygame.draw.rect(self.screen_native, (255, 0, 0), self.camera.apply_rect(wall), 1)
+            
+            # 2. Dibujar Hitbox del Jugador (Verde - Pies)
+            # Accedemos al hitbox que creamos en player.py
+            hitbox_rect = self.camera.apply_rect(self.player.hitbox)
+            pygame.draw.rect(self.screen_native, (0, 255, 0), hitbox_rect, 1)
+
+            # 3. Dibujar Rect de la Imagen (Blanco - Cuerpo entero)
+            image_rect = self.camera.apply(self.player)
+            pygame.draw.rect(self.screen_native, (255, 255, 255), image_rect, 1)
+
+            # 4. Mostrar FPS en pantalla
+            font = pygame.font.SysFont("Arial", 10)
+            fps_text = font.render(f"FPS: {int(self.clock.get_fps())}", True, (255, 255, 0))
+            self.screen_native.blit(fps_text, (5, 5))
 
     def draw(self):
         self.screen_native.fill(BG_COLOR)
@@ -123,12 +146,12 @@ class Game:
         if self.running:
             self.draw_map()
         
-        # DEBUG: Si quieres ver las paredes rojas para comprobar si funcionan
-        # for wall in self.obstacle_rects:
-        #    pygame.draw.rect(self.screen_native, (255, 0, 0), self.camera.apply_rect(wall), 1)
-
+        # Dibujar Sprites
         for sprite in self.all_sprites:
             self.screen_native.blit(sprite.image, self.camera.apply(sprite))
+
+        # --- DIBUJAR DEBUG ---
+        self.draw_debug()
 
         frame_scaled = pygame.transform.scale(self.screen_native, (SCREEN_WIDTH * SCALE_FACTOR, SCREEN_HEIGHT * SCALE_FACTOR))
         self.screen_window.blit(frame_scaled, (0, 0))
