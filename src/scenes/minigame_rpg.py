@@ -18,7 +18,7 @@ PLAYER_POS = (70, 190)
 
 # Posición del ENEMIGO (Coordenada de la BASE)
 # En tu imagen, el monstruo está sobre el escritorio del profesor (arriba derecha).
-ENEMY_POS = (250, 130)
+ENEMY_POS = (250, 180)
 
 # --- ESCALA DE IMÁGENES ---
 # Si los dibujos se ven muy chicos o grandes, cambia estos multiplicadores.

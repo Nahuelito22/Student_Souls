@@ -3,6 +3,7 @@ import asyncio
 from scenes.level_hub import LevelHub
 from scenes.level_entrance import LevelEntrance
 from scenes.minigame_runner import MinigameRunner
+from scenes.minigame_rpg import MinigameRPG
 
 # --- CONFIGURACIÓN ---
 SCREEN_WIDTH = 320   
@@ -52,6 +53,10 @@ class Game:
                 elif next_level == "Runner":
                     print("🏃 Iniciando Runner...")
                     self.current_scene = MinigameRunner(self.screen_native)
+
+                elif next_level == "RPG": # <--- NUEVO
+                    print("⚔️ Iniciando RPG...")
+                    self.current_scene = MinigameRPG(self.screen_native)
                 
                 # (Aquí agregarás "Entrance" si quieres volver a la calle desde el Hub)
 

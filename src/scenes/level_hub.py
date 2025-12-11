@@ -133,7 +133,8 @@ class LevelHub:
                     print("🚀 ¡Iniciando Cursada Infinita!")
                     self.next_scene = "Runner"
                 elif name == "Aula_RPG":
-                    print("--> PELEA CONTRA EL SISTEMA")
+                    print("⚔️ Entrando al combate...")
+                    self.next_scene = "RPG" # <--- ESTO ES LO NUEVO
                 elif name == "Aula_TP":
                     print("--> HACER EL TP")
                 elif name == "Aula_Admin":
