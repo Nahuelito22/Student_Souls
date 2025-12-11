@@ -154,39 +154,61 @@ class Obstacle(pygame.sprite.Sprite):
         super().__init__()
         self.type = obs_type
         
-        if self.type == 0: # Bolsa Dinero
-            width, height = 25, 25
-            y_pos = SCREEN_HEIGHT - GROUND_HEIGHT
-            self.image = pygame.Surface((width, height), pygame.SRCALPHA)
-            pygame.draw.rect(self.image, (255, 215, 0), (0, 5, width, height - 5))
-            pygame.draw.circle(self.image, (200, 165, 0), (width//2, 5), width//2)
+        # Ruta base de las imágenes
+        path = os.path.join("game_assets", "graphics", "runner")
+        
+        # Configuración por defecto
+        image_name = ""
+        fallback_size = (30, 30)
+        fallback_color = (255, 0, 255)
+        y_pos = 0 # Se define abajo
+        
+        # --- DEFINIR TIPO DE OBSTÁCULO ---
+        if self.type == 0: # Bolsa de Dinero (25x38)
+            image_name = "obstacle_money.png"
+            y_pos = SCREEN_HEIGHT - GROUND_HEIGHT # En el suelo
+            fallback_size = (25, 38)
+            fallback_color = (255, 215, 0) # Dorado
             
-        elif self.type == 1: # PDF Viejo
-            width, height = 30, 40
-            y_pos = SCREEN_HEIGHT - GROUND_HEIGHT
-            self.image = pygame.Surface((width, height), pygame.SRCALPHA)
-            pygame.draw.rect(self.image, (200, 200, 200), (0, 0, width, height))
-            pygame.draw.rect(self.image, (100, 100, 100), (5, 5, width-10, height-10), 2)
+        elif self.type == 1: # PDF Viejo (25x31)
+            image_name = "obstacle_pdf.png"
+            y_pos = SCREEN_HEIGHT - GROUND_HEIGHT # En el suelo
+            fallback_size = (25, 31)
+            fallback_color = (200, 200, 200) # Gris
             
-        elif self.type == 2: # Visto/Pájaro
-            width, height = 40, 20
-            color = (150, 150, 255)
+        elif self.type == 2: # Pájaro/Visto (30x30)
+            image_name = "obstacle_bird.png"
+            fallback_size = (30, 30)
+            fallback_color = (255, 255, 0) # Amarillo
+            
+            # Lógica de altura para el pájaro
             # 50% probabilidad de venir bajo (saltar) o alto (agacharse)
             if random.random() < 0.5:
-                y_pos = SCREEN_HEIGHT - GROUND_HEIGHT - 10 # Bajo
+                y_pos = SCREEN_HEIGHT - GROUND_HEIGHT - 5 # Vuelo Bajo (casi tocando suelo)
             else:
-                y_pos = SCREEN_HEIGHT - GROUND_HEIGHT - 35 # Alto (Cara)
-                
-            self.image = pygame.Surface((width, height), pygame.SRCALPHA)
-            pygame.draw.ellipse(self.image, color, (0, 0, width, height))
+                y_pos = SCREEN_HEIGHT - GROUND_HEIGHT - 35 # Vuelo Alto (altura de la cara)
 
+        # --- CARGAR IMAGEN ---
+        try:
+            full_path = os.path.join(path, image_name)
+            self.image = pygame.image.load(full_path).convert_alpha()
+        except Exception as e:
+            print(f"⚠️ Error cargando {image_name}: {e}")
+            # Si falla, dibujamos el rectángulo de color como antes
+            self.image = pygame.Surface(fallback_size)
+            self.image.fill(fallback_color)
+
+        # --- POSICIONAR ---
         self.rect = self.image.get_rect()
+        # Aparece a la derecha fuera de pantalla (+ un random para que no sea tan rítmico)
         self.rect.x = SCREEN_WIDTH + random.randint(10, 50)
         self.rect.bottom = y_pos
 
     def update(self, speed):
         self.rect.x -= speed
-        if self.rect.right < 0: self.kill()
+        # Si sale por la izquierda, lo eliminamos
+        if self.rect.right < 0:
+            self.kill()
 
 class PowerUp(pygame.sprite.Sprite):
     def __init__(self, power_type):
