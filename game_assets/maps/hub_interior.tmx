@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="16" tileheight="16" infinite="0" nextlayerid="10" nextobjectid="11">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="16" tileheight="16" infinite="0" nextlayerid="10" nextobjectid="13">
  <tileset firstgid="1" source="../../../../../Users/matia/interiores.tsx"/>
  <tileset firstgid="1425" source="../../../../../Users/matia/habitacion.tsx"/>
  <layer id="1" name="Suelo" width="30" height="20">
@@ -128,9 +128,11 @@
   <object id="3" x="384.375" y="144.125" width="95.75" height="31.75"/>
   <object id="4" x="0.215909" y="144.027" width="95.75" height="31.75"/>
   <object id="5" name="Tutorial_Zone" type="zona_interaccion" x="196" y="28.5" width="88.25" height="50.75"/>
-  <object id="6" name="Spawn_Point" x="239.875" y="296.67">
+  <object id="6" name="Spawn_Point" x="239.693" y="287.761">
    <point/>
   </object>
+  <object id="11" x="128.394" y="0.0606061" width="223.545" height="4.18182"/>
+  <object id="12" x="128.591" y="317" width="223.545" height="4.18182"/>
  </objectgroup>
  <objectgroup id="9" name="Interacciones">
   <object id="7" name="Aula_Admin" x="352.434" y="224.125" width="29.7557" height="31.9318"/>
