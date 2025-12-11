@@ -26,7 +26,7 @@ MIN_SPAWN_DELAY = 600    # Tiempo mínimo (para que no sea imposible)
 # --- SALUD MENTAL ---
 MAX_HEALTH = 100         # Vida total
 DAMAGE_HIT = 25          # Cuánto quita chocar un obstáculo
-HEAL_RATE = 0.025         # Cuánto regenera por frame (0.01 lento, 0.1 rápido)
+HEAL_RATE = 0.01         # Cuánto regenera por frame (0.01 lento, 0.1 rápido)
 
 # --- POWER-UPS ---
 POWERUP_CHANCE = 0.2     # Probabilidad (0.2 = 20%) de que aparezca un item
@@ -35,48 +35,49 @@ SHIELD_DURATION = 200    # Duración del escudo en frames (300 frames / 60 fps =
 # ==============================================================================
 
 class RunnerPlayer(pygame.sprite.Sprite):
-
     def __init__(self):
         super().__init__()
         
-        # --- CARGAR IMÁGENES REALES ---
-        # Ruta base
-        path = os.path.join("game_assets", "graphics", "player")
+        # --- CARGAR IMÁGENES (RUTA CORREGIDA) ---
+        # Ruta a la carpeta del runner
+        path = os.path.join("game_assets", "graphics", "runner")
         
-        # 1. Cargar CORRER (Bob_run_16x16.png)
-        # La imagen mide 384x32. Cada frame mide 16 de ancho.
-        # Los primeros 6 frames (0 a 5) son correr a la derecha.
+        # 1. CORRER (Bob_run_16x16.png - Tira horizontal de 384x32)
         self.run_frames = []
         try:
             run_sheet = pygame.image.load(os.path.join(path, "Bob_run_16x16.png")).convert_alpha()
-            for i in range(6):
-                # Recortamos frame por frame (16x32)
+            # La imagen tiene 384px de ancho. Cada frame mide 16px. 
+            # Total frames = 384 / 16 = 24 frames.
+            # Usaremos los primeros 6 frames que son de correr a la derecha.
+            total_frames_to_load = 6
+            for i in range(total_frames_to_load):
+                # Recortamos horizontalmente: X varía, Y es siempre 0
                 frame = pygame.Surface((16, 32), pygame.SRCALPHA)
                 frame.blit(run_sheet, (0, 0), (i * 16, 0, 16, 32))
-                # Escalamos x3 para que se vea bien en pantalla
-                frame = pygame.transform.scale(frame, (16 * 3, 32 * 3))
                 self.run_frames.append(frame)
+            print(f"✅ Cargados {len(self.run_frames)} frames de correr.")
+                
         except Exception as e:
-            print(f"Error cargando Run: {e}")
-            # Fallback por si falla: cuadrado azul
-            s = pygame.Surface((48, 96)); s.fill((0,0,255)); self.run_frames = [s]
+            print(f"⚠️ ERROR CARGANDO RUN: {e}")
+            s = pygame.Surface((16, 32)); s.fill((0,0,255)); self.run_frames = [s]
 
-        # 2. Cargar AGACHARSE (Bob_sit2_16x16.png)
-        # Usaremos el primer frame de sentado como "deslizamiento"
+        # 2. AGACHARSE (Bob_sit2_16x16.png - Tira horizontal)
         try:
             sit_sheet = pygame.image.load(os.path.join(path, "Bob_sit2_16x16.png")).convert_alpha()
-            # Recortamos el primer frame (16x32 o 16x16 dependiendo del sheet, asumimos 16x32 por compatibilidad)
-            # Si el sit es de 16x16, ajustamos el recorte
-            frame_sit = pygame.Surface((16, 32), pygame.SRCALPHA)
-            frame_sit.blit(sit_sheet, (0, 0), (0, 0, 16, 32)) # Tomamos el primer monigote sentado
-            self.image_crouch = pygame.transform.scale(frame_sit, (16 * 3, 32 * 3))
-        except:
-            s = pygame.Surface((48, 48)); s.fill((0,255,255)); self.image_crouch = s
+            # Tomamos el primer frame de la tira (0,0)
+            self.image_crouch = pygame.Surface((16, 32), pygame.SRCALPHA)
+            self.image_crouch.blit(sit_sheet, (0, 0), (0, 0, 16, 32))
+            print("✅ Imagen de agacharse cargada.")
+            
+        except Exception as e:
+            print(f"⚠️ ERROR CARGANDO SIT: {e}")
+            s = pygame.Surface((16, 16)); s.fill((0,255,255)); self.image_crouch = s
 
         # --- CONFIGURACIÓN INICIAL ---
         self.frame_index = 0
-        self.animation_speed = 0.25
+        self.animation_speed = 0.2
         
+        # Empezamos con el primer frame de correr
         self.image = self.run_frames[0]
         self.rect = self.image.get_rect()
         
@@ -85,13 +86,9 @@ class RunnerPlayer(pygame.sprite.Sprite):
         self.ground_y = SCREEN_HEIGHT - GROUND_HEIGHT
         self.rect.bottom = self.ground_y
         
-        # Hitbox (Ajustada al tamaño escalado x3)
-        # Bob mide 16*3 = 48px de ancho. Hitbox más flaca (30px).
-        self.hitbox_stand = self.rect.inflate(-20, -10) 
-        
         # Físicas
         self.gravity = 0.8
-        self.jump_power = -14 
+        self.jump_power = -12
         self.velocity_y = 0
         self.is_jumping = False
         self.is_crouching = False
@@ -111,10 +108,11 @@ class RunnerPlayer(pygame.sprite.Sprite):
         if self.is_crouching:
             self.image = self.image_crouch
         elif self.is_jumping:
-            # Si salta, usamos un frame fijo de correr (ej: el 2 donde abre las piernas)
-            self.image = self.run_frames[2] 
+            # Frame fijo al saltar (usamos el 3ro que suele ser piernas abiertas)
+            idx = 2 if len(self.run_frames) > 2 else 0
+            self.image = self.run_frames[idx]
         else:
-            # Corriendo en el suelo
+            # Corriendo
             self.frame_index += self.animation_speed
             if self.frame_index >= len(self.run_frames):
                 self.frame_index = 0
@@ -133,21 +131,17 @@ class RunnerPlayer(pygame.sprite.Sprite):
     def crouch(self):
         if not self.is_crouching:
             self.is_crouching = True
-            # Cambiamos imagen y reajustamos posición para no atravesar el piso
             old_bottom = self.rect.bottom
             old_x = self.rect.x
             self.image = self.image_crouch
             self.rect = self.image.get_rect()
             self.rect.bottom = old_bottom
             self.rect.x = old_x
-            
-            # Bajar rápido si estaba saltando
             if self.is_jumping: self.velocity_y = 10
 
     def stand_up(self):
         if self.is_crouching:
             self.is_crouching = False
-            # Volver a imagen normal
             old_bottom = self.rect.bottom
             old_x = self.rect.x
             self.image = self.run_frames[0]
