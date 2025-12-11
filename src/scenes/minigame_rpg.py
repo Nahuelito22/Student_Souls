@@ -238,8 +238,8 @@ class MinigameRPG:
         self.display_surface.blit(self.ui_panel, (0, panel_y))
         
         # 4. Barras de Vida
-        self.draw_hp_bar(self.current_hp_enemy, self.max_hp_enemy, 10, 10, "EL SISTEMA")
-        self.draw_hp_bar(self.current_hp_player, self.max_hp_player, 210, 180, "BOB")
+        self.draw_hp_bar(self.current_hp_player, self.max_hp_player, 10, 10, "BOB")
+        self.draw_hp_bar(self.current_hp_enemy, self.max_hp_enemy, 210, 10, "EL SISTEMA")
 
         # 5. Texto de Estado (Centro del panel)
         # Si no es menú, mostramos el mensaje de turno
