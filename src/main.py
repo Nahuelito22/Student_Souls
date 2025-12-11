@@ -1,7 +1,8 @@
 import pygame
 import asyncio
 from scenes.level_hub import LevelHub
-from scenes.level_entrance import LevelEntrance # <--- IMPORTAR LA NUEVA ESCENA
+from scenes.level_entrance import LevelEntrance
+from scenes.minigame_runner import MinigameRunner
 
 # --- CONFIGURACIÓN ---
 SCREEN_WIDTH = 320   
@@ -43,6 +44,8 @@ class Game:
                 if next_level == "Hub":
                     print("🎬 Entrando a la Facultad...")
                     self.current_scene = LevelHub(self.screen_native)
+                elif next_level == "Runner": # <--- NUEVO
+                    self.current_scene = MinigameRunner(self.screen_native)
                 
                 # Aquí agregaríamos más cambios (ej: volver a la calle)
                 
