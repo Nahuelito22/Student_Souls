@@ -22,13 +22,14 @@ class Player(pygame.sprite.Sprite):
         
         # Imagen
         self.image = self.animations[self.status][self.frame_index]
-        self.rect = self.image.get_rect(topleft=pos)
-        
+        self.rect = self.image.get_rect(midbottom=pos)
+                
         # Hitbox: Es un rect más pequeño (solo los pies) para colisiones precisas
         # inflate(-X, -Y) reduce el tamaño. 
         # Reducimos ancho un poco y altura a la mitad (solo pies)
-        self.hitbox = self.rect.inflate(-4, -16) 
-
+        self.hitbox = self.rect.inflate(-4, -5)
+        self.hitbox.bottom = self.rect.bottom 
+        
         # Movimiento
         self.direction = pygame.math.Vector2()
         self.speed = 2
