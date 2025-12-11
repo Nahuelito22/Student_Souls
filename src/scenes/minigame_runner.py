@@ -3,34 +3,32 @@ import random
 import os
 
 # ==============================================================================
-# ⚙️ ZONA DE CONFIGURACIÓN Y DIFICULTAD (¡TOCA AQUÍ!)
+# ⚙️ CONFIGURACIÓN DEL MINIJUEGO
 # ==============================================================================
 
-# --- PANTALLA ---
 SCREEN_WIDTH = 320
 SCREEN_HEIGHT = 240
-BG_COLOR = (135, 206, 235) 
 GROUND_HEIGHT = 40
-GROUND_COLOR = (100, 60, 20)
+BG_COLOR = (135, 206, 235) # Color de respaldo si falla la imagen
 
-# --- VELOCIDAD ---
-INITIAL_SPEED = 5        # Velocidad inicial (Menos de 4 es muy lento)
-MAX_SPEED = 15           # Velocidad máxima permitida (Más de 20 es injugable)
-SPEED_INCREMENT = 0.5    # Cuánto aumenta la velocidad en cada nivel
-SCORE_TO_SPEED = 500     # Cada cuántos "puntos/metros" sube la velocidad
+# DIFICULTAD
+INITIAL_SPEED = 5        
+MAX_SPEED = 15           
+SPEED_INCREMENT = 0.5    
+SCORE_TO_SPEED = 500     
 
-# --- SPAWN (ENEMIGOS) ---
-BASE_SPAWN_DELAY = 1500  # Tiempo base entre enemigos (milisegundos)
-MIN_SPAWN_DELAY = 600    # Tiempo mínimo (para que no sea imposible)
+# SPAWN
+BASE_SPAWN_DELAY = 1500  
+MIN_SPAWN_DELAY = 600    
 
-# --- SALUD MENTAL ---
-MAX_HEALTH = 100         # Vida total
-DAMAGE_HIT = 25          # Cuánto quita chocar un obstáculo
-HEAL_RATE = 0.01         # Cuánto regenera por frame (0.01 lento, 0.1 rápido)
+# SALUD
+MAX_HEALTH = 100         
+DAMAGE_HIT = 25          
+HEAL_RATE = 0.05         
 
-# --- POWER-UPS ---
-POWERUP_CHANCE = 0.2     # Probabilidad (0.2 = 20%) de que aparezca un item
-SHIELD_DURATION = 200    # Duración del escudo en frames (300 frames / 60 fps = 5 seg)
+# POWER-UPS
+POWERUP_CHANCE = 0.2     
+SHIELD_DURATION = 300    
 
 # ==============================================================================
 
@@ -38,53 +36,48 @@ class RunnerPlayer(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
         
-        # --- CARGAR IMÁGENES (RUTA CORREGIDA) ---
-        # Ruta a la carpeta del runner
+        # Ruta base
         path = os.path.join("game_assets", "graphics", "runner")
         
-        # 1. CORRER (Bob_run_16x16.png - Tira horizontal de 384x32)
+        # --- 1. CARGAR CORRER (Bob_run_16x16.png) ---
         self.run_frames = []
         try:
+            # Tira horizontal de 384x32
             run_sheet = pygame.image.load(os.path.join(path, "Bob_run_16x16.png")).convert_alpha()
-            # La imagen tiene 384px de ancho. Cada frame mide 16px. 
-            # Total frames = 384 / 16 = 24 frames.
-            # Usaremos los primeros 6 frames que son de correr a la derecha.
-            total_frames_to_load = 6
-            for i in range(total_frames_to_load):
-                # Recortamos horizontalmente: X varía, Y es siempre 0
+            # Usamos los primeros 6 frames (0 a 5)
+            for i in range(6):
                 frame = pygame.Surface((16, 32), pygame.SRCALPHA)
                 frame.blit(run_sheet, (0, 0), (i * 16, 0, 16, 32))
                 self.run_frames.append(frame)
-            print(f"✅ Cargados {len(self.run_frames)} frames de correr.")
-                
         except Exception as e:
-            print(f"⚠️ ERROR CARGANDO RUN: {e}")
-            s = pygame.Surface((16, 32)); s.fill((0,0,255)); self.run_frames = [s]
+            print(f"⚠️ Error cargando Run: {e}")
+            s = pygame.Surface((16, 32)); s.fill((50, 50, 255)); self.run_frames = [s]
 
-        # 2. AGACHARSE (Bob_sit2_16x16.png - Tira horizontal)
+        # --- 2. CARGAR AGACHARSE (Bob_sit2_16x16.png) ---
         try:
             sit_sheet = pygame.image.load(os.path.join(path, "Bob_sit2_16x16.png")).convert_alpha()
-            # Tomamos el primer frame de la tira (0,0)
-            self.image_crouch = pygame.Surface((16, 32), pygame.SRCALPHA)
-            self.image_crouch.blit(sit_sheet, (0, 0), (0, 0, 16, 32))
-            print("✅ Imagen de agacharse cargada.")
-            
+            # Detectamos la altura real de la imagen para recortar bien
+            # Si el sheet mide 16px de alto, recortamos 16x16. Si mide 32, 16x32.
+            h = sit_sheet.get_height() 
+            self.image_crouch = pygame.Surface((16, h), pygame.SRCALPHA)
+            self.image_crouch.blit(sit_sheet, (0, 0), (0, 0, 16, h)) # Frame 0
         except Exception as e:
-            print(f"⚠️ ERROR CARGANDO SIT: {e}")
-            s = pygame.Surface((16, 16)); s.fill((0,255,255)); self.image_crouch = s
+            print(f"⚠️ Error cargando Sit: {e}")
+            s = pygame.Surface((16, 16)); s.fill((50, 100, 255)); self.image_crouch = s
 
-        # --- CONFIGURACIÓN INICIAL ---
+        # Configuración Inicial
         self.frame_index = 0
-        self.animation_speed = 0.2
+        self.animation_speed = 0.25
         
-        # Empezamos con el primer frame de correr
         self.image = self.run_frames[0]
         self.rect = self.image.get_rect()
         
-        # Posición
         self.rect.x = 40
         self.ground_y = SCREEN_HEIGHT - GROUND_HEIGHT
         self.rect.bottom = self.ground_y
+        
+        # Hitbox Ajustada (Más delgada para ser amable con el jugador)
+        self.hitbox = self.rect.inflate(-6, -5)
         
         # Físicas
         self.gravity = 0.8
@@ -107,16 +100,24 @@ class RunnerPlayer(pygame.sprite.Sprite):
         # --- ANIMACIÓN ---
         if self.is_crouching:
             self.image = self.image_crouch
+            # Ajuste de hitbox al agacharse
+            self.hitbox = self.rect.inflate(-6, -5)
+            self.hitbox.bottom = self.rect.bottom
         elif self.is_jumping:
-            # Frame fijo al saltar (usamos el 3ro que suele ser piernas abiertas)
+            # Frame de salto (el 3ro suele ser piernas abiertas)
             idx = 2 if len(self.run_frames) > 2 else 0
             self.image = self.run_frames[idx]
+            self.hitbox = self.rect.inflate(-6, -5)
+            self.hitbox.bottom = self.rect.bottom
         else:
             # Corriendo
             self.frame_index += self.animation_speed
             if self.frame_index >= len(self.run_frames):
                 self.frame_index = 0
             self.image = self.run_frames[int(self.frame_index)]
+            # Ajuste constante de hitbox
+            self.hitbox = self.rect.inflate(-6, -5)
+            self.hitbox.bottom = self.rect.bottom
 
     def jump(self):
         if not self.is_jumping:
@@ -133,10 +134,14 @@ class RunnerPlayer(pygame.sprite.Sprite):
             self.is_crouching = True
             old_bottom = self.rect.bottom
             old_x = self.rect.x
+            
             self.image = self.image_crouch
             self.rect = self.image.get_rect()
+            
+            # Restaurar posición
             self.rect.bottom = old_bottom
             self.rect.x = old_x
+            
             if self.is_jumping: self.velocity_y = 10
 
     def stand_up(self):
@@ -144,8 +149,10 @@ class RunnerPlayer(pygame.sprite.Sprite):
             self.is_crouching = False
             old_bottom = self.rect.bottom
             old_x = self.rect.x
+            
             self.image = self.run_frames[0]
             self.rect = self.image.get_rect()
+            
             self.rect.bottom = old_bottom
             self.rect.x = old_x
 
@@ -153,83 +160,75 @@ class Obstacle(pygame.sprite.Sprite):
     def __init__(self, obs_type):
         super().__init__()
         self.type = obs_type
-        
-        # Ruta base de las imágenes
         path = os.path.join("game_assets", "graphics", "runner")
         
-        # Configuración por defecto
         image_name = ""
-        fallback_size = (30, 30)
-        fallback_color = (255, 0, 255)
-        y_pos = 0 # Se define abajo
+        # Fallbacks
+        width, height = 30, 30
+        y_pos = SCREEN_HEIGHT - GROUND_HEIGHT
         
-        # --- DEFINIR TIPO DE OBSTÁCULO ---
-        if self.type == 0: # Bolsa de Dinero (25x38)
+        if self.type == 0: # Bolsa Dinero
             image_name = "obstacle_money.png"
-            y_pos = SCREEN_HEIGHT - GROUND_HEIGHT # En el suelo
-            fallback_size = (25, 38)
-            fallback_color = (255, 215, 0) # Dorado
+            width, height = 25, 38
             
-        elif self.type == 1: # PDF Viejo (25x31)
+        elif self.type == 1: # PDF Viejo
             image_name = "obstacle_pdf.png"
-            y_pos = SCREEN_HEIGHT - GROUND_HEIGHT # En el suelo
-            fallback_size = (25, 31)
-            fallback_color = (200, 200, 200) # Gris
+            width, height = 25, 31
             
-        elif self.type == 2: # Pájaro/Visto (30x30)
+        elif self.type == 2: # Pájaro/Visto
             image_name = "obstacle_bird.png"
-            fallback_size = (30, 30)
-            fallback_color = (255, 255, 0) # Amarillo
-            
-            # Lógica de altura para el pájaro
-            # 50% probabilidad de venir bajo (saltar) o alto (agacharse)
+            width, height = 30, 30
+            # Altura variable (Bajo o Alto)
             if random.random() < 0.5:
-                y_pos = SCREEN_HEIGHT - GROUND_HEIGHT - 5 # Vuelo Bajo (casi tocando suelo)
+                y_pos = SCREEN_HEIGHT - GROUND_HEIGHT - 5 # Bajo
             else:
-                y_pos = SCREEN_HEIGHT - GROUND_HEIGHT - 35 # Vuelo Alto (altura de la cara)
+                y_pos = SCREEN_HEIGHT - GROUND_HEIGHT - 35 # Alto
 
-        # --- CARGAR IMAGEN ---
+        # Cargar
         try:
-            full_path = os.path.join(path, image_name)
-            self.image = pygame.image.load(full_path).convert_alpha()
-        except Exception as e:
-            print(f"⚠️ Error cargando {image_name}: {e}")
-            # Si falla, dibujamos el rectángulo de color como antes
-            self.image = pygame.Surface(fallback_size)
-            self.image.fill(fallback_color)
+            self.image = pygame.image.load(os.path.join(path, image_name)).convert_alpha()
+        except:
+            # Placeholder si falta la imagen
+            self.image = pygame.Surface((width, height))
+            self.image.fill((255,0,0) if self.type != 2 else (255,255,0))
 
-        # --- POSICIONAR ---
         self.rect = self.image.get_rect()
-        # Aparece a la derecha fuera de pantalla (+ un random para que no sea tan rítmico)
         self.rect.x = SCREEN_WIDTH + random.randint(10, 50)
         self.rect.bottom = y_pos
+        
+        # Hitbox un poco más chica que el dibujo para ser justa
+        self.hitbox = self.rect.inflate(-4, -4)
 
     def update(self, speed):
         self.rect.x -= speed
-        # Si sale por la izquierda, lo eliminamos
-        if self.rect.right < 0:
-            self.kill()
+        self.hitbox.center = self.rect.center # Sincronizar hitbox
+        if self.rect.right < 0: self.kill()
 
 class PowerUp(pygame.sprite.Sprite):
     def __init__(self, power_type):
         super().__init__()
         self.type = power_type
+        path = os.path.join("game_assets", "graphics", "runner")
         
-        if self.type == 0: # Café (Velocidad)
-            width, height = 20, 20
-            color = (139, 69, 19)
+        image_name = ""
+        if self.type == 0: # Café
+            image_name = "item_coffee.png"
             self.effect = "speed"
-            
         elif self.type == 1: # Escudo
-            width, height = 25, 25
-            color = (0, 255, 0)
             self.effect = "shield"
+            # Elegir uno random de los 3 escudos
+            variantes = ["item_shield1.png", "item_shield2.png", "item_shield3.png"]
+            image_name = random.choice(variantes)
 
-        self.image = pygame.Surface((width, height))
-        self.image.fill(color)
+        try:
+            self.image = pygame.image.load(os.path.join(path, image_name)).convert_alpha()
+        except:
+            self.image = pygame.Surface((20, 20))
+            self.image.fill((0,255,0))
+
         self.rect = self.image.get_rect()
         self.rect.x = SCREEN_WIDTH + random.randint(10, 50)
-        self.rect.bottom = SCREEN_HEIGHT - GROUND_HEIGHT - random.randint(20, 60)
+        self.rect.bottom = SCREEN_HEIGHT - GROUND_HEIGHT - random.randint(30, 80)
 
     def update(self, speed):
         self.rect.x -= speed
@@ -239,12 +238,9 @@ class MinigameRunner:
     def __init__(self, display_surface):
         self.display_surface = display_surface
         self.font = pygame.font.SysFont("Arial", 16)
-        
-        # INICIAR EL JUEGO LIMPIO
         self.reset_game()
 
     def reset_game(self):
-        """Reinicia todas las variables para jugar de nuevo sin recargar la clase"""
         self.state = "playing"
         self.next_scene = None
 
@@ -255,49 +251,56 @@ class MinigameRunner:
         self.player = RunnerPlayer()
         self.all_sprites.add(self.player)
 
-        # Variables de estado
+        # Variables Estado
         self.mental_health = MAX_HEALTH
         self.game_speed = INITIAL_SPEED
         self.score = 0
         self.spawn_timer = 0
         self.spawn_delay = BASE_SPAWN_DELAY
-        
         self.player_shield = False
         self.shield_timer = 0
         
-        self.ground_x = 0
-        
-        # Fondo Parallax
-        self.bg_layers = []
-        self.bg_speeds = [0.2, 0.5, 0.8]
-        self.bg_x_positions = [0, 0, 0]
-        for i in range(3):
-            layer = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT - GROUND_HEIGHT))
-            layer.fill((135 - i*20, 206 - i*20, 235 - i*20))
-            # Nubes aleatorias
-            for j in range(3):
-                pygame.draw.ellipse(layer, (255, 255, 255, 100), (random.randint(0, 300), random.randint(0, 150), 60, 20))
-            self.bg_layers.append(layer)
+        # --- CARGAR FONDOS (PARALLAX) ---
+        path = os.path.join("game_assets", "graphics", "runner")
+        try:
+            # Capa 1: Cielo
+            self.bg_sky = pygame.image.load(os.path.join(path, "bg_sky.png")).convert()
+            self.bg_sky = pygame.transform.scale(self.bg_sky, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
+            # Capa 2: Ciudad
+            self.bg_city = pygame.image.load(os.path.join(path, "bg_city.png")).convert_alpha()
+            self.bg_city = pygame.transform.scale(self.bg_city, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
+            # Capa 3: Suelo (AQUÍ ESTABA EL PROBLEMA)
+            self.bg_ground = pygame.image.load(os.path.join(path, "bg_ground.png")).convert_alpha()
+            # Forzamos que mida 320x40 para que llene el hueco negro
+            self.bg_ground = pygame.transform.scale(self.bg_ground, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            
+        except Exception as e:
+            print(f"⚠️ Error fondos: {e}")
+            # Fallbacks
+            self.bg_sky = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT)); self.bg_sky.fill(BG_COLOR)
+            self.bg_city = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            self.bg_ground = pygame.Surface((SCREEN_WIDTH, GROUND_HEIGHT)); self.bg_ground.fill((100, 60, 20))
+
+        # Posiciones de scroll
+        self.x_sky = 0
+        self.x_city = 0
+        self.x_ground = 0
 
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
-            
-            # --- JUGANDO ---
             if self.state == "playing":
-                # Salto (Espacio, W, Flecha Arriba)
                 if event.key in [pygame.K_SPACE, pygame.K_UP, pygame.K_w]:
                     self.player.jump()
-                # Agacharse (S, Flecha Abajo)
                 if event.key in [pygame.K_DOWN, pygame.K_s]:
                     self.player.crouch()
-                # Salir al Hub con ESC
                 if event.key == pygame.K_ESCAPE:
                     self.next_scene = "Hub"
             
-            # --- GAME OVER ---
             elif self.state == "game_over":
                 if event.key == pygame.K_SPACE:
-                    self.reset_game() # Reinicio limpio
+                    self.reset_game()
                 elif event.key == pygame.K_ESCAPE:
                     self.next_scene = "Hub"
 
@@ -310,106 +313,112 @@ class MinigameRunner:
 
     def update(self):
         if self.state == "playing":
-            # 1. Dificultad Progresiva
+            # 1. Dificultad
             if self.score > 0 and self.score % SCORE_TO_SPEED == 0:
                 if self.game_speed < MAX_SPEED:
                     self.game_speed += SPEED_INCREMENT
                     print(f"⚡ ¡Velocidad: {self.game_speed:.1f}!")
 
-            # 2. Scroll Suelo
-            self.ground_x -= self.game_speed
-            if self.ground_x <= -SCREEN_WIDTH:
-                self.ground_x = 0
+            # 2. Scroll Parallax (Movemos cada capa a distinta velocidad)
+            # Cielo: 10% velocidad
+            self.x_sky -= self.game_speed * 0.1
+            if self.x_sky <= -SCREEN_WIDTH: self.x_sky = 0
             
-            # 3. Scroll Fondo (Parallax)
-            for i in range(3):
-                self.bg_x_positions[i] -= self.game_speed * self.bg_speeds[i]
-                if self.bg_x_positions[i] <= -SCREEN_WIDTH: self.bg_x_positions[i] = 0
+            # Ciudad: 50% velocidad
+            self.x_city -= self.game_speed * 0.5
+            if self.x_city <= -SCREEN_WIDTH: self.x_city = 0
+            
+            # Suelo: 100% velocidad
+            self.x_ground -= self.game_speed
+            if self.x_ground <= -SCREEN_WIDTH: self.x_ground = 0
 
-            # 4. Spawner Enemigos
+            # 3. Spawner
             now = pygame.time.get_ticks()
-            # Fórmula: A más velocidad, menos espera
             current_delay = max(MIN_SPAWN_DELAY, BASE_SPAWN_DELAY - (self.game_speed * 50))
             
             if now - self.spawn_timer > self.spawn_delay:
                 self.spawn_timer = now
                 self.spawn_delay = random.randint(int(current_delay), int(current_delay) + 1000)
                 
-                # Elegir obstáculo (50% normal, 30% doble, 20% volador)
+                # Obstáculos
                 roll = random.random()
                 obs_type = 0 if roll < 0.5 else 1 if roll < 0.8 else 2
-                
                 new_obs = Obstacle(obs_type)
                 self.all_sprites.add(new_obs)
                 self.obstacles.add(new_obs)
 
-                # Spawner Power-ups
+                # Power-ups
                 if random.random() < POWERUP_CHANCE:
                     new_pw = PowerUp(random.choice([0, 1]))
                     self.all_sprites.add(new_pw)
                     self.powerups.add(new_pw)
 
-            # 5. Updates
+            # 4. Updates
             self.player.update()
             self.obstacles.update(self.game_speed)
             self.powerups.update(self.game_speed)
 
-            # 6. Colisiones Power-ups
+            # 5. Colisiones Powerups
             hits_pw = pygame.sprite.spritecollide(self.player, self.powerups, True)
             for p in hits_pw:
                 if p.effect == "speed": # Café
-                    self.score += 500 # Premio de puntaje
-                    self.mental_health = min(self.mental_health + 20, MAX_HEALTH) # Cura
-                elif p.effect == "shield": # Resumen
+                    self.score += 500
+                    self.mental_health = min(self.mental_health + 20, MAX_HEALTH)
+                elif p.effect == "shield": # Escudo
                     self.player_shield = True
                     self.shield_timer = SHIELD_DURATION
 
-            # Actualizar Escudo
             if self.player_shield:
                 self.shield_timer -= 1
                 if self.shield_timer <= 0: self.player_shield = False
 
-            # 7. Colisiones Enemigos
+            # 6. Colisiones Obstáculos (Usando la hitbox mejorada del player)
+            # spritecollide usa .rect por defecto, pero podemos chequear colisión manual si queremos precisión extrema.
+            # Por ahora usamos collide_rect normal pero como ajustamos .inflate en el player, funciona bien.
             if not self.player_shield:
-                hits = pygame.sprite.spritecollide(self.player, self.obstacles, True) # True = desaparece al chocar
-                if hits:
-                    self.mental_health -= DAMAGE_HIT
-                    if self.mental_health <= 0:
-                        self.state = "game_over"
+                for obs in self.obstacles:
+                    # Chequeo preciso: hitbox vs hitbox
+                    if self.player.hitbox.colliderect(obs.hitbox):
+                        self.mental_health -= DAMAGE_HIT
+                        obs.kill() # El obstáculo desaparece al pegar
+                        if self.mental_health <= 0:
+                            self.state = "game_over"
 
-            # 8. Regeneración
+            # 7. Regeneración
             if self.mental_health < MAX_HEALTH:
                 self.mental_health += HEAL_RATE
 
             self.score += 1
 
     def draw(self):
-        # Fondo
-        for i, layer in enumerate(self.bg_layers):
-            x = self.bg_x_positions[i]
-            self.display_surface.blit(layer, (x, 0))
-            self.display_surface.blit(layer, (x + SCREEN_WIDTH, 0))
+        # Función auxiliar para dibujar infinito
+        def draw_infinite(image, x_pos, y_pos):
+            self.display_surface.blit(image, (x_pos, y_pos))
+            self.display_surface.blit(image, (x_pos + SCREEN_WIDTH, y_pos))
 
-        # Suelo
-        pygame.draw.rect(self.display_surface, GROUND_COLOR, (self.ground_x, SCREEN_HEIGHT - GROUND_HEIGHT, SCREEN_WIDTH, GROUND_HEIGHT))
-        pygame.draw.rect(self.display_surface, GROUND_COLOR, (self.ground_x + SCREEN_WIDTH, SCREEN_HEIGHT - GROUND_HEIGHT, SCREEN_WIDTH, GROUND_HEIGHT))
+        # 1. Dibujar Fondos (Orden: Cielo -> Ciudad -> Suelo)
+        draw_infinite(self.bg_sky, self.x_sky, 0)
+        draw_infinite(self.bg_city, self.x_city, 0)
+        draw_infinite(self.bg_ground, self.x_ground, 0)
 
-        # Sprites
+        # 2. Sprites
         self.all_sprites.draw(self.display_surface)
         
         # Escudo Visual
         if self.player_shield:
             pygame.draw.circle(self.display_surface, (0,255,255), self.player.rect.center, 20, 2)
 
-        # UI
+        # 3. UI
+        # Distancia
         self.display_surface.blit(self.font.render(f"Distancia: {self.score//10}m", True, (0,0,0)), (10, 10))
         
-        # Barra de Vida
-        pygame.draw.rect(self.display_surface, (50,50,50), (10, 35, 100, 10))
+        # Barra Vida
+        bar_x, bar_y = 10, 30
+        pygame.draw.rect(self.display_surface, (50,50,50), (bar_x, bar_y, 100, 10))
         life_w = int(100 * (self.mental_health / MAX_HEALTH))
-        col = (0,255,0) if self.mental_health > 50 else (255,0,0)
-        pygame.draw.rect(self.display_surface, col, (10, 35, life_w, 10))
-
+        col = (0,255,0) if self.mental_health > 50 else (255,255,0) if self.mental_health > 25 else (255,0,0)
+        pygame.draw.rect(self.display_surface, col, (bar_x, bar_y, life_w, 10))
+        
         # Game Over
         if self.state == "game_over":
             s = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -419,7 +428,7 @@ class MinigameRunner:
             cx, cy = SCREEN_WIDTH//2, SCREEN_HEIGHT//2
             t1 = self.font.render("¡REPROBADO!", True, (255, 50, 50))
             t2 = self.font.render("[ESPACIO] Recuperatorio", True, (255, 255, 255))
-            t3 = self.font.render("[ESC] Abandonar", True, (200, 200, 200))
+            t3 = self.font.render("[ESC] Volver al Hub", True, (200, 200, 200))
             
             self.display_surface.blit(t1, t1.get_rect(center=(cx, cy-20)))
             self.display_surface.blit(t2, t2.get_rect(center=(cx, cy+10)))
