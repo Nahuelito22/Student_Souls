@@ -2,69 +2,69 @@ import pygame
 import os
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, pos, groups):
+    def __init__(self, pos, groups, obstacle_sprites):
         super().__init__(groups)
         
-        # Configuración de dimensiones
+        # Configuración
         self.width = 16
         self.height = 32
         
-        # 1. Cargar todas las animaciones (Idle y Run)
+        # Guardamos las paredes para chequear colisiones luego
+        self.obstacle_sprites = obstacle_sprites 
+
+        # 1. Cargar animaciones
         self.import_assets()
         
         # Estado inicial
         self.status = 'down'
         self.frame_index = 0
-        self.animation_speed = 0.15 # Velocidad de animación
+        self.animation_speed = 0.15
         
-        # Imagen inicial
+        # Imagen
         self.image = self.animations[self.status][self.frame_index]
         self.rect = self.image.get_rect(topleft=pos)
         
+        # Hitbox: Es un rect más pequeño (solo los pies) para colisiones precisas
+        # inflate(-X, -Y) reduce el tamaño. 
+        # Reducimos ancho un poco y altura a la mitad (solo pies)
+        self.hitbox = self.rect.inflate(-4, -16) 
+
         # Movimiento
         self.direction = pygame.math.Vector2()
         self.speed = 2
 
     def import_assets(self):
-        """Carga y recorta las hojas de sprites"""
         path = os.path.join("game_assets", "graphics", "player")
         self.animations = {'up': [], 'down': [], 'left': [], 'right': [],
                            'up_idle': [], 'down_idle': [], 'left_idle': [], 'right_idle': []}
 
-        # --- CARGAR IDLE (64x32) ---
-        # Orden: Derecha(0), Arriba(1), Izquierda(2), Abajo(3) - 1 Frame cada uno
+        # IDLE
         idle_path = os.path.join(path, "Bob_idle_16x16.png")
-        idle_sheet = pygame.image.load(idle_path).convert_alpha()
-        
-        self.animations['right_idle'].append(self.get_image(idle_sheet, 0, 0))
-        self.animations['up_idle'].append(self.get_image(idle_sheet, 16, 0))
-        self.animations['left_idle'].append(self.get_image(idle_sheet, 32, 0))
-        self.animations['down_idle'].append(self.get_image(idle_sheet, 48, 0))
+        try:
+            idle_sheet = pygame.image.load(idle_path).convert_alpha()
+            self.animations['right_idle'].append(self.get_image(idle_sheet, 0, 0))
+            self.animations['up_idle'].append(self.get_image(idle_sheet, 16, 0))
+            self.animations['left_idle'].append(self.get_image(idle_sheet, 32, 0))
+            self.animations['down_idle'].append(self.get_image(idle_sheet, 48, 0))
+        except:
+            print("⚠️ Error cargando Idle")
 
-        # --- CARGAR RUN (384x32) ---
-        # Tira larga con 24 frames en total (6 por dirección)
-        # Orden asumido: Derecha -> Arriba -> Izquierda -> Abajo
+        # RUN
         run_path = os.path.join(path, "Bob_run_16x16.png")
-        
         try:
             run_sheet = pygame.image.load(run_path).convert_alpha()
-            
-            # Recortamos los 24 frames
-            for i in range(6): self.animations['right'].append(self.get_image(run_sheet, i*16, 0))       # 0-5
-            for i in range(6): self.animations['up'].append(self.get_image(run_sheet, (i+6)*16, 0))      # 6-11
-            for i in range(6): self.animations['left'].append(self.get_image(run_sheet, (i+12)*16, 0))   # 12-17
-            for i in range(6): self.animations['down'].append(self.get_image(run_sheet, (i+18)*16, 0))   # 18-23
-            
-        except FileNotFoundError:
-            print("⚠️ ERROR: No se encontró Bob_run_16x16.png. Usando Idle como respaldo.")
-            # Si falla, usamos los idle para correr también
-            self.animations['right'] = self.animations['right_idle']
-            self.animations['up'] = self.animations['up_idle']
-            self.animations['left'] = self.animations['left_idle']
-            self.animations['down'] = self.animations['down_idle']
+            for i in range(6): self.animations['right'].append(self.get_image(run_sheet, i*16, 0))
+            for i in range(6): self.animations['up'].append(self.get_image(run_sheet, (i+6)*16, 0))
+            for i in range(6): self.animations['left'].append(self.get_image(run_sheet, (i+12)*16, 0))
+            for i in range(6): self.animations['down'].append(self.get_image(run_sheet, (i+18)*16, 0))
+        except:
+             print("⚠️ Error cargando Run. Usando Idle.")
+             self.animations['right'] = self.animations['right_idle']
+             self.animations['up'] = self.animations['up_idle']
+             self.animations['left'] = self.animations['left_idle']
+             self.animations['down'] = self.animations['down_idle']
 
     def get_image(self, sheet, x, y):
-        """Herramienta de recorte"""
         image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         image.blit(sheet, (0, 0), (x, y, self.width, self.height))
         return image
@@ -72,7 +72,6 @@ class Player(pygame.sprite.Sprite):
     def input(self):
         keys = pygame.key.get_pressed()
         
-        # Movimiento
         if keys[pygame.K_UP] or keys[pygame.K_w]:
             self.direction.y = -1
             self.status = 'up'
@@ -91,32 +90,52 @@ class Player(pygame.sprite.Sprite):
         else:
             self.direction.x = 0
 
+    def move(self, speed):
+        # Normalizar velocidad diagonal
+        if self.direction.magnitude() != 0:
+            self.direction = self.direction.normalize()
+
+        # --- EJE X ---
+        self.hitbox.x += self.direction.x * speed
+        self.collision('horizontal')
+
+        # --- EJE Y ---
+        self.hitbox.y += self.direction.y * speed
+        self.collision('vertical')
+
+        # Actualizar el rect visual basado en la hitbox (que es la física)
+        self.rect.center = self.hitbox.center
+
+    def collision(self, direction):
+        # Recorremos todas las paredes (rectángulos) que pasamos desde el Main
+        for wall in self.obstacle_sprites:
+            if self.hitbox.colliderect(wall):
+                if direction == 'horizontal':
+                    if self.direction.x > 0: # Yendo a la derecha
+                        self.hitbox.right = wall.left
+                    if self.direction.x < 0: # Yendo a la izquierda
+                        self.hitbox.left = wall.right
+                
+                if direction == 'vertical':
+                    if self.direction.y > 0: # Yendo abajo
+                        self.hitbox.bottom = wall.top
+                    if self.direction.y < 0: # Yendo arriba
+                        self.hitbox.top = wall.bottom
+
     def get_status(self):
-        # Si el jugador no se mueve, agregamos "_idle" al estado
         if self.direction.x == 0 and self.direction.y == 0:
             if not 'idle' in self.status:
                 self.status = self.status + '_idle'
 
     def animate(self):
-        # Buscamos la lista de imágenes correcta según el estado (ej: 'down' o 'down_idle')
         animation = self.animations[self.status]
-
-        # Avanzamos el frame
         self.frame_index += self.animation_speed
         if self.frame_index >= len(animation):
             self.frame_index = 0
-
-        # Actualizamos la imagen
         self.image = animation[int(self.frame_index)]
 
     def update(self):
         self.input()
-        self.get_status() # Calcula si está quieto o corriendo
-        self.animate()    # Elige el dibujo correcto
-        
-        # Mover y normalizar
-        if self.direction.magnitude() != 0:
-            self.direction = self.direction.normalize()
-        
-        self.rect.x += self.direction.x * self.speed
-        self.rect.y += self.direction.y * self.speed
+        self.get_status()
+        self.animate()
+        self.move(self.speed)
