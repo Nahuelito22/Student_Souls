@@ -20,35 +20,41 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # --- GESTOR DE ESCENAS ---
-        # AHORA EMPEZAMOS EN LA ENTRADA (CALLE)
+        # Empezamos en la calle
         self.current_scene = LevelEntrance(self.screen_native)
 
     async def run(self):
         while self.running:
             # 1. EVENTOS
             for event in pygame.event.get():
+                # Cerrar con la X de la ventana
                 if event.type == pygame.QUIT:
                     self.running = False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    self.running = False
                 
+                # --- AQUÍ BORRAMOS EL ESCAPE GLOBAL ---
+                # Ya no cerramos con ESC aquí, dejamos que la escena decida.
+                
+                # Pasamos el evento a la escena
                 if hasattr(self.current_scene, "handle_input"):
-                    self.current_scene.handle_input(event)
+                    # Si la escena devuelve True, significa "Cierra el juego por favor"
+                    should_quit = self.current_scene.handle_input(event)
+                    if should_quit:
+                        self.running = False
 
             # 2. LOGICA DE CAMBIO DE ESCENA
-            # Verificamos si la escena actual quiere cambiar
             if hasattr(self.current_scene, "next_scene") and self.current_scene.next_scene:
                 next_level = self.current_scene.next_scene
                 
                 if next_level == "Hub":
-                    print("🎬 Entrando a la Facultad...")
+                    print("🔄 Volviendo al Hub...")
                     self.current_scene = LevelHub(self.screen_native)
-                elif next_level == "Runner": # <--- NUEVO
+                
+                elif next_level == "Runner":
+                    print("🏃 Iniciando Runner...")
                     self.current_scene = MinigameRunner(self.screen_native)
                 
-                # Aquí agregaríamos más cambios (ej: volver a la calle)
-                
+                # (Aquí agregarás "Entrance" si quieres volver a la calle desde el Hub)
+
             # 3. UPDATE
             self.current_scene.update()
 
