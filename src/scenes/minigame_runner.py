@@ -24,7 +24,7 @@ MIN_SPAWN_DELAY = 600
 # SALUD
 MAX_HEALTH = 100         
 DAMAGE_HIT = 25          
-HEAL_RATE = 0.05         
+HEAL_RATE = 0.01         
 
 # POWER-UPS
 POWERUP_CHANCE = 0.2     
@@ -275,7 +275,7 @@ class MinigameRunner:
             self.bg_ground = pygame.image.load(os.path.join(path, "bg_ground.png")).convert_alpha()
             # Forzamos que mida 320x40 para que llene el hueco negro
             self.bg_ground = pygame.transform.scale(self.bg_ground, (SCREEN_WIDTH, SCREEN_HEIGHT))
-            
+
         except Exception as e:
             print(f"⚠️ Error fondos: {e}")
             # Fallbacks
@@ -399,7 +399,9 @@ class MinigameRunner:
         # 1. Dibujar Fondos (Orden: Cielo -> Ciudad -> Suelo)
         draw_infinite(self.bg_sky, self.x_sky, 0)
         draw_infinite(self.bg_city, self.x_city, 0)
-        draw_infinite(self.bg_ground, self.x_ground, 0)
+
+        ground_offset_y = 20 
+        draw_infinite(self.bg_ground, self.x_ground, ground_offset_y)
 
         # 2. Sprites
         self.all_sprites.draw(self.display_surface)
